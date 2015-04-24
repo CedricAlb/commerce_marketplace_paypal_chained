@@ -1,0 +1,75 @@
+<?php
+
+/**
+ * @file
+ * Module hooks and helper functions for Commerce PayPal Chained integration with Commmerce-Marketplace
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_marketplace_paypal_chained_menu() {
+  $items = array();
+  $items['admin/commerce/config/commerce_marketplace_paypal_chained'] = array(
+    'title' => t('Marketplace PayPal Chained'),
+    'description' => t('Marketplace PayPal Chained module settings'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_marketplace_paypal_chained_settings'),
+    'access arguments' => array('configure store'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Creates settings form for module.
+ */
+function commerce_marketplace_paypal_chained_settings($form, &$form_state) {
+  $form = array();
+  $form['commerce_marketplace_paypal_chained_cart_limit_message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Cart limit message'),
+    '#description' => t('The message that should be displayed if the user try to buy from more than @limit stores.'),
+    '#default_value' => variable_get('commerce_marketplace_paypal_chained_cart_limit_message', 
+    																 t('You cannot order from more than @limit stores at once, please adjust your cart.', 
+    																 		array('@limit' => variable_get('commerce_marketplace_paypal_chained_receivers_limit', 9)))),
+    '#rows' => 2,
+  );
+  $form['commerce_marketplace_paypal_chained_receivers_limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum number of secondary receivers'),
+    '#description' => t('The maximum number of secondary receivers for a single PayPal Chained transaction.'),
+    '#default_value' => variable_get('commerce_marketplace_paypal_chained_receivers_limit', 9),
+    '#required' => TRUE,
+    '#size' => 6,
+  );
+  return system_settings_form($form);
+}
+
+
+/**
+ * Implements hook_commerce_checkout_router() to prevent checkout if there is more than 9 orders
+ * ==> PayPal Chained is limited to 9 secondary receivers 
+ * cf. https://developer.paypal.com/docs/classic/adaptive-payments/integration-guide/APIntro/
+ */
+function commerce_marketplace_paypal_chained_commerce_checkout_router($order, $checkout_page) {
+  // Get the id of the first checkout page
+  $checkout_pages = commerce_checkout_pages();
+  $first_checkout_page = key($checkout_pages);
+  // Check if the user's shopping cart order exists with something in the cart
+  if (($checkout_page['page_id'] == $first_checkout_page)) {
+    // check the number of orders in the cart
+    $orders = commerce_marketplace_order_group_load($order->order_group);
+    $order_count = commerce_marketplace_order_count($orders);
+    $max_receivers = variable_get('commerce_marketplace_paypal_chained_receivers_limit', 9);
+    if ($order_count > $max_receivers) {
+	    // display the limit message and redirect to the cart
+      $cart_limit_message = variable_get('commerce_marketplace_paypal_chained_cart_limit_message', 
+  																 t('You cannot order from more than @limit stores at once, please adjust your cart.', 
+  																 		array('@limit' => variable_get('commerce_marketplace_paypal_chained_receivers_limit', 9))));
+      drupal_set_message($cart_limit_message, 'warning');
+			return drupal_goto('cart');
+		}
+  }
+}
+

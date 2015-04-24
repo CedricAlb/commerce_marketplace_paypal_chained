@@ -1,0 +1,7 @@
+
+name = Commerce Marketplace PayPal Chained
+description = Integrate PayPal Chained module with Commerce Marketplace module.
+package = Commerce (contrib)
+dependencies[] = commerce_paypal_chained
+dependencies[] = commerce_marketplace
+core = 7.x
